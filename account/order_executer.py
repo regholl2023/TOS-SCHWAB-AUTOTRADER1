@@ -1,9 +1,21 @@
-from account.order import place_buy_order_with_trailing_stop, place_market_sell_order
+from account.order import place_buy_order_with_trailing_stop, place_market_sell_order, get_account_hash
 from stream import get_last_x_minutes_data
 from utils.ema import calculate_ema_and_bands
 import time
 from config import TICKER_SYMBOL
-from schwabdev import Client  # Ensure you have the client initialized properly
+import schwabdev
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+load_dotenv()
+APP_KEY = os.getenv("APP_KEY")
+APP_SECRET = os.getenv("APP_SECRET")
+REDIRECT_URL = os.getenv("REDIRECT_URL")
+TOKENS_FILE = os.getenv("TOKENS_FILE")
+
+# Initialize the Schwab client
+client = schwabdev.Client(APP_KEY, APP_SECRET, REDIRECT_URL, TOKENS_FILE)
 
 def log_order_to_file(order_type, price):
     """Log orders to a file with the order type and price."""
@@ -13,7 +25,13 @@ def log_order_to_file(order_type, price):
 def run_order_executor(orders_tree_widget):
     last_alert_type = None  # Track the last alert type to alternate between buy and sell orders
     first_order_placed = False  # Ensure we start with a buy order
-
+    
+    # Retrieve the account hash at the beginning
+    account_hash = get_account_hash(client)
+    if not account_hash:
+        print("Failed to retrieve account hash. Exiting order executor.")
+        return
+    
     while True:
         # Get EMA and bands data
         ema, upper_band, lower_band = calculate_ema_and_bands()
@@ -28,7 +46,7 @@ def run_order_executor(orders_tree_widget):
                         alert_message = f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}"
                         print(alert_message)
                         orders_tree_widget.insert("", "end", values=("BUY", last_price))
-                        place_buy_order_with_trailing_stop(Client, TICKER_SYMBOL)
+                        place_buy_order_with_trailing_stop(client, TICKER_SYMBOL)  # Pass account_hash here
                         log_order_to_file("BUY", last_price)
                         last_alert_type = "buy"
                         first_order_placed = True  # Mark that the first buy order has been placed
@@ -38,14 +56,14 @@ def run_order_executor(orders_tree_widget):
                         alert_message = f"SELL ALERT: Last price {last_price} is above the upper band {upper_band}"
                         print(alert_message)
                         orders_tree_widget.insert("", "end", values=("SELL", last_price))
-                        place_market_sell_order(Client, TICKER_SYMBOL)
+                        place_market_sell_order(client, TICKER_SYMBOL, account_hash)  # Pass account_hash here
                         log_order_to_file("SELL", last_price)
                         last_alert_type = "sell"
                     elif last_price < lower_band and last_alert_type != "buy":
                         alert_message = f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}"
                         print(alert_message)
                         orders_tree_widget.insert("", "end", values=("BUY", last_price))
-                        place_buy_order_with_trailing_stop(Client, TICKER_SYMBOL)
+                        place_buy_order_with_trailing_stop(client, TICKER_SYMBOL, account_hash)  # Pass account_hash here
                         log_order_to_file("BUY", last_price)
                         last_alert_type = "buy"
 

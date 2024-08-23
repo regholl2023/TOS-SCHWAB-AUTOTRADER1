@@ -103,6 +103,8 @@ def run_stream(tree, start_stream):
     stream_update_thread = Thread(target=stream_update_handler)
     stream_update_thread.start()
 
+import datetime  # Add this import for timestamps
+
 def monitor_prices(ema_tree, alert_text):
     """Monitor prices and update the EMA table and alerts."""
     while True:
@@ -115,14 +117,21 @@ def monitor_prices(ema_tree, alert_text):
                 # Update the EMA table with color coding
                 update_ema_table(ema_tree, ema, upper_band, lower_band, last_price)
 
+                # Generate the current timestamp
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
                 # Check for alerts
                 if last_price > upper_band:
-                    alert_text.insert(tk.END, f"SELL ALERT: Last price {last_price} is above the upper band {upper_band}!\n", "alert-sell")
+                    alert_message = f"{timestamp} - SELL ALERT: Last price {last_price} is above the upper band {upper_band}!"
+                    alert_text.insert(tk.END, alert_message + "\n", "alert-sell")
                 elif last_price < lower_band:
-                    alert_text.insert(tk.END, f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}!\n", "alert-buy")
+                    alert_message = f"{timestamp} - BUY ALERT: Last price {last_price} is below the lower band {lower_band}!"
+                    alert_text.insert(tk.END, alert_message + "\n", "alert-buy")
+                
                 alert_text.see(tk.END)  # Automatically scroll to the end
 
         time.sleep(1)  # Monitor every 1 second
+
 
 def update_order_log(order_tree):
     """Monitor and update the order log panel."""
@@ -160,10 +169,11 @@ def setup_gui(start_stream):
     live_data_tree.heading("Value", text="Value")
     live_data_tree.pack(fill=tk.BOTH, expand=True)
 
-    # Create the EMA and bounds panel
+    # Create the right panel for EMA, orders, logs, and pairs
     right_panel = tk.Frame(root)
     right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
+    # Create the EMA and bounds panel at the top of the right panel
     ema_frame = tk.Frame(right_panel)
     ema_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
@@ -173,15 +183,29 @@ def setup_gui(start_stream):
     ema_tree.heading("Value", text="Value")
     ema_tree.pack(fill=tk.BOTH, expand=True)
 
-    # Create the orders panel below the EMA display
-    orders_frame = tk.Frame(right_panel)
-    orders_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    # Create a frame for logs and pairs under the EMA frame
+    logs_and_pairs_frame = tk.Frame(right_panel)
+    logs_and_pairs_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    # Create the orders panel on the left side of logs_and_pairs_frame
+    orders_frame = tk.Frame(logs_and_pairs_frame)
+    orders_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     # Create a Treeview for displaying orders
     orders_tree = ttk.Treeview(orders_frame, columns=("Order Type", "Price"), show="headings")
     orders_tree.heading("Order Type", text="Order Type")
     orders_tree.heading("Price", text="Price")
     orders_tree.pack(fill=tk.BOTH, expand=True)
+
+    # Create the pairs panel on the right side of logs_and_pairs_frame
+    pairs_frame = tk.Frame(logs_and_pairs_frame)
+    pairs_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+    # Create a Treeview for displaying pairs
+    pairs_tree = ttk.Treeview(pairs_frame, columns=("Buy Order", "Sell Order"), show="headings")
+    pairs_tree.heading("Buy Order", text="Buy Order")
+    pairs_tree.heading("Sell Order", text="Sell Order")
+    pairs_tree.pack(fill=tk.BOTH, expand=True)
 
     # Create the alerts panel at the bottom
     alert_frame = tk.Frame(root)
@@ -204,3 +228,4 @@ def setup_gui(start_stream):
 
     # Start the tkinter main loop
     root.mainloop()
+

@@ -1,3 +1,4 @@
+# Here's the updated `order.py` file with the latest implementation of `place_buy_order_with_trailing_stop`
 import json
 import time
 import os
@@ -24,7 +25,8 @@ parent_order_id = None
 child_order_id = None
 
 # Function to get account hash
-def get_account_hash():
+# Function to get account hash
+def get_account_hash(client):
     response = client.account_linked()
     if response.ok:
         account_data = response.json()
@@ -33,11 +35,14 @@ def get_account_hash():
     console.print("[bold red]Failed to retrieve account hash.[/bold red]")
     return None
 
+
 # Function to place a two-legged buy order with a trailing stop
 def place_buy_order_with_trailing_stop(client, ticker):
     global account_hash  # Ensure account_hash is accessible
-    get_account_hash()  # Ensure the account_hash is retrieved
-
+    
+    # Call get_account_hash to initialize account_hash
+    account_hash = get_account_hash(client)
+    
     # Ensure account hash is available before placing an order
     if not account_hash:
         console.print("[bold red]Account hash is not available. Cannot place the order.[/bold red]")
@@ -45,6 +50,7 @@ def place_buy_order_with_trailing_stop(client, ticker):
 
     # Order payload construction (using relevant config values)
     order_payload = {
+        "accountId": account_hash,  # Ensure the account ID is correctly passed
         "session": "NORMAL",
         "duration": "DAY",
         "orderType": "MARKET",
@@ -75,24 +81,29 @@ def place_buy_order_with_trailing_stop(client, ticker):
     }
 
     # Place the order and handle the response
-    response = client.order_place(account_hash, order_payload)
-    api_response = handle_api_response(response)
+    try:
+        response = client.order_place(order_payload)  # Pass only the order_payload directly
+        api_response = handle_api_response(response)
 
-    log_order_payload_to_file(order_payload, "Buy", ticker, api_response)
+        log_order_payload_to_file(order_payload, "Buy", ticker, api_response)
 
-    if response.status_code == 201:
-        location_header = response.headers.get("Location")
-        if location_header:
-            parent_order_id = int(location_header.split('/')[-1])
-            child_order_id = parent_order_id + 1
-            console.print(f"[bold green]Placed buy order for {ticker} with trailing stop. Parent Order ID: {parent_order_id}, Child Order ID: {child_order_id}[/bold green]")
-            return parent_order_id, order_payload
+        if response.status_code == 201:
+            location_header = response.headers.get("Location")
+            if location_header:
+                parent_order_id = int(location_header.split('/')[-1])
+                child_order_id = parent_order_id + 1
+                console.print(f"[bold green]Placed buy order for {ticker} with trailing stop. Parent Order ID: {parent_order_id}, Child Order ID: {child_order_id}[/bold green]")
+                return parent_order_id, order_payload
+            else:
+                console.print(f"[bold red]Order placed, but no order ID found in the Location header.[/bold red]")
+                return None, order_payload
         else:
-            console.print(f"[bold red]Order placed, but no order ID found in the Location header.[/bold red]")
+            console.print(f"[bold red]Failed to place buy order for {ticker}. Status code: {response.status_code}[/bold red]")
             return None, order_payload
-    else:
-        console.print(f"[bold red]Failed to place buy order for {ticker}. Status code: {response.status_code}[/bold red]")
-        return None, order_payload
+
+    except Exception as e:
+        console.print(f"[bold red]Exception occurred while placing order: {str(e)}[/bold red]")
+        return None, None
 
 
 def handle_api_response(response):
@@ -101,6 +112,7 @@ def handle_api_response(response):
     except ValueError:  # If response is not valid JSON
         console.print(f"[bold red]Invalid JSON response[/bold red]")
         return {"error": "Invalid JSON response", "raw_response": response.text}
+
 
 import os
 import json
@@ -175,6 +187,7 @@ def cancel_and_replace_with_market_sell(account_hash, order_id):
         time.sleep(2)
         place_market_sell_order(account_hash)
 
+"""
 if __name__ == "__main__":
     # Retrieve the account hash
     account_hash = get_account_hash()
@@ -189,3 +202,4 @@ if __name__ == "__main__":
     if child_order_id:
         time.sleep(10)  # Replace with logic to wait for a specific condition
         #cancel_and_replace_with_market_sell(account_hash, child_order_id)
+"""
