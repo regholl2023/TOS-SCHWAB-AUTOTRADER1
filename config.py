@@ -2,6 +2,23 @@
 
 # Constants
 TICKER_SYMBOL = "SQQQ"  # The ticker symbol you want to stream
+# Order Settings
+QUANTITY=1
+STOP_PRICE_OFFSET = 0.7  # The trailing stop offset
+STOP_PRICE_LINK_TYPE = "VALUE"  # Type of link (could be VALUE, PERCENT, etc.)
+STOP_PRICE_LINK_BASIS = "LAST"  # Basis for the stop price (could be LAST, BID, ASK, etc.)
+
+
+# Deque configuration for storing the last X minutes of data
+X_MINUTES = 8  # Example: last 8 minutes of data
+MAX_LENGTH = X_MINUTES * 60  # Assuming data updates once per second
+
+# EMA and Std Deviation Configurations
+STD_DEVIATION_MULTIPLIER = 1.7  # Multiplier for standard deviation bands
+
+
+
+
 
 # List of all fields to be requested from the LEVELONE_EQUITIES service
 FIELDS = ",".join(str(i) for i in range(52))  # Generates '0,1,2,...,51' for all fields
@@ -62,10 +79,4 @@ FIELD_MAPPING = {
     "51": "Post-Market Percent Change"
 }
 
-# Deque configuration for storing the last X minutes of data
-X_MINUTES = 8  # Example: last 8 minutes of data
-MAX_LENGTH = X_MINUTES * 60  # Assuming data updates once per second
 
-# EMA and Std Deviation Configurations
-EMA_PERIOD = 12  # Period for EMA calculation
-STD_DEVIATION_MULTIPLIER = 1.7  # Multiplier for standard deviation bands
