@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from tkinter.scrolledtext import ScrolledText
 from threading import Thread
 import time
@@ -22,7 +23,7 @@ def run_stream(output_queue):
     print("Starting stream...")
     start_stream()
 
-def monitor_prices(output_queue):
+def monitor_prices(output_queue, table_queue):
     sys.stdout = RedirectText(output_queue)
     while True:
         ema, upper_band, lower_band = calculate_ema_and_bands()
@@ -36,6 +37,9 @@ def monitor_prices(output_queue):
                         print(f"ALERT: Last price {last_price} is above the upper band {upper_band}!")
                     elif last_price < lower_band:
                         print(f"ALERT: Last price {last_price} is below the lower band {lower_band}!")
+                
+                # Update the table data
+                table_queue.put(latest_data)
         time.sleep(5)
 
 def update_text_widgets():
@@ -55,29 +59,61 @@ def update_text_widgets():
         except Empty:
             break
 
+def update_table():
+    while True:
+        try:
+            data = table_queue.get_nowait()
+            # Clear the existing rows
+            for item in table.tree.get_children():
+                table.tree.delete(item)
+            # Insert new rows
+            for entry in data:
+                last_price = entry.get('Last Price', 'N/A')
+                timestamp = entry.get('Timestamp', 'N/A')
+                table.tree.insert("", tk.END, values=(timestamp, last_price))
+        except Empty:
+            break
+
+    root.after(100, update_table)
+
+class LiveTableApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Live Data Stream & EMA Monitor")
+
+        # Create two ScrolledText widgets for displaying the output
+        global stream_output, ema_output
+        stream_output = ScrolledText(root, height=20, width=80)
+        stream_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        ema_output = ScrolledText(root, height=20, width=80)
+        ema_output.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+        # Create a Treeview widget for the live table
+        self.table = ttk.Treeview(root, columns=("Timestamp", "Last Price"), show='headings')
+        self.table.heading("Timestamp", text="Timestamp")
+        self.table.heading("Last Price", text="Last Price")
+        self.table.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+        self.table.tree = self.table
+
 def main():
-    global stream_output, ema_output, stream_queue, ema_queue
+    global stream_queue, ema_queue, table_queue, root
 
-    # Create the main window
     root = tk.Tk()
-    root.title("Live Data Stream & EMA Monitor")
 
-    # Create two ScrolledText widgets for displaying the output
-    stream_output = ScrolledText(root, height=20, width=80)
-    stream_output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-    ema_output = ScrolledText(root, height=20, width=80)
-    ema_output.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+    app = LiveTableApp(root)
 
     # Create queues for thread communication
     stream_queue = Queue()
     ema_queue = Queue()
+    table_queue = Queue()
 
     # Start the stream and monitoring in separate threads
     stream_thread = Thread(target=run_stream, args=(stream_queue,))
     stream_thread.start()
 
-    monitor_thread = Thread(target=monitor_prices, args=(ema_queue,))
+    monitor_thread = Thread(target=monitor_prices, args=(ema_queue, table_queue))
     monitor_thread.start()
 
     # Update the Tkinter widgets with the data from the queues
@@ -86,6 +122,7 @@ def main():
         root.after(100, check_queues)
 
     check_queues()
+    update_table()
 
     # Start the tkinter main loop
     root.mainloop()
