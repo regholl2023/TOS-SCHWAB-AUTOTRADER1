@@ -150,10 +150,6 @@ def setup_gui(start_stream):
     root = tk.Tk()
     root.title("Live Data Stream & EMA Monitor")
 
-    # Define styles for the Treeview
-    style = ttk.Style(root)
-    style.configure("Treeview.Heading", font=("Helvetica", 10, "bold"))
-
     # Create the live data panel
     live_data_frame = tk.Frame(root)
     live_data_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
@@ -165,8 +161,11 @@ def setup_gui(start_stream):
     live_data_tree.pack(fill=tk.BOTH, expand=True)
 
     # Create the EMA and bounds panel
-    ema_frame = tk.Frame(root)
-    ema_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+    right_panel = tk.Frame(root)
+    right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+
+    ema_frame = tk.Frame(right_panel)
+    ema_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
     # Create a Treeview for displaying EMA, bounds, and last price
     ema_tree = ttk.Treeview(ema_frame, columns=("Metric", "Value"), show="headings")
@@ -174,7 +173,17 @@ def setup_gui(start_stream):
     ema_tree.heading("Value", text="Value")
     ema_tree.pack(fill=tk.BOTH, expand=True)
 
-    # Create the alerts panel
+    # Create the orders panel below the EMA display
+    orders_frame = tk.Frame(right_panel)
+    orders_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    # Create a Treeview for displaying orders
+    orders_tree = ttk.Treeview(orders_frame, columns=("Order Type", "Price"), show="headings")
+    orders_tree.heading("Order Type", text="Order Type")
+    orders_tree.heading("Price", text="Price")
+    orders_tree.pack(fill=tk.BOTH, expand=True)
+
+    # Create the alerts panel at the bottom
     alert_frame = tk.Frame(root)
     alert_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
@@ -184,21 +193,13 @@ def setup_gui(start_stream):
     alert_text.tag_configure("alert-sell", foreground="red")
     alert_text.tag_configure("alert-buy", foreground="green")
 
-    # Create the orders panel
-    orders_frame = tk.Frame(root)
-    orders_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
-
-    # Create a ScrolledText for displaying orders
-    orders_text = tk.Text(orders_frame, height=10, wrap=tk.WORD)
-    orders_text.pack(fill=tk.BOTH, expand=True)
-
     # Start the stream and monitoring in separate threads
     run_stream(live_data_tree, start_stream)
     monitor_thread = Thread(target=monitor_prices, args=(ema_tree, alert_text))
     monitor_thread.start()
 
-    # Start the order executor thread
-    order_executor_thread = Thread(target=order_executer.run_order_executor, args=(orders_text,))
+    # Start the order executor in a separate thread
+    order_executor_thread = Thread(target=order_executer.run_order_executor, args=(orders_tree,))
     order_executor_thread.start()
 
     # Start the tkinter main loop

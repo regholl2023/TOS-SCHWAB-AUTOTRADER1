@@ -35,20 +35,21 @@ def get_account_hash():
 
 # Function to place a two-legged buy order with a trailing stop
 def place_buy_order_with_trailing_stop(client, ticker):
-    global parent_order_id, child_order_id  # Track both order IDs
-    account_hash = get_account_hash()
+    global account_hash  # Ensure account_hash is accessible
+    get_account_hash()  # Ensure the account_hash is retrieved
 
     # Ensure account hash is available before placing an order
     if not account_hash:
         console.print("[bold red]Account hash is not available. Cannot place the order.[/bold red]")
         return None, None
 
+    # Order payload construction (using relevant config values)
     order_payload = {
         "session": "NORMAL",
         "duration": "DAY",
         "orderType": "MARKET",
-        "orderStrategyType": "TRIGGER",  # Trigger for subsequent orders
-        "editable": True,  # Make the order editable
+        "orderStrategyType": "TRIGGER",
+        "editable": True,
         "orderLegCollection": [{
             "orderLegType": "EQUITY",
             "instruction": "BUY",
@@ -59,11 +60,11 @@ def place_buy_order_with_trailing_stop(client, ticker):
             "session": "NORMAL",
             "duration": "DAY",
             "orderType": "TRAILING_STOP",
-            "orderStrategyType": "SINGLE",  # Single trailing stop order
+            "orderStrategyType": "SINGLE",
             "stopPriceLinkType": STOP_PRICE_LINK_TYPE,
             "stopPriceOffset": STOP_PRICE_OFFSET,
             "stopPriceLinkBasis": STOP_PRICE_LINK_BASIS,
-            "editable": True,  # Ensure the child order is also editable
+            "editable": True,
             "orderLegCollection": [{
                 "orderLegType": "EQUITY",
                 "instruction": "SELL",
@@ -73,19 +74,63 @@ def place_buy_order_with_trailing_stop(client, ticker):
         }]
     }
 
-    console.print("[bold blue]Placing buy order with trailing stop...[/bold blue]")
+    # Place the order and handle the response
     response = client.order_place(account_hash, order_payload)
-    
+    api_response = handle_api_response(response)
+
+    log_order_payload_to_file(order_payload, "Buy", ticker, api_response)
+
     if response.status_code == 201:
         location_header = response.headers.get("Location")
         if location_header:
-            parent_order_id = int(location_header.split('/')[-1])  # Extract the parent order ID
-            child_order_id = parent_order_id + 1  # Assume child order ID is parent + 1
-            console.print(f"[bold green]Order placed successfully. Parent Order ID: {parent_order_id}, Child Order ID: {child_order_id}[/bold green]")
-            return parent_order_id, child_order_id
+            parent_order_id = int(location_header.split('/')[-1])
+            child_order_id = parent_order_id + 1
+            console.print(f"[bold green]Placed buy order for {ticker} with trailing stop. Parent Order ID: {parent_order_id}, Child Order ID: {child_order_id}[/bold green]")
+            return parent_order_id, order_payload
+        else:
+            console.print(f"[bold red]Order placed, but no order ID found in the Location header.[/bold red]")
+            return None, order_payload
     else:
-        console.print(f"[bold red]Failed to place order: {response.text}[/bold red]")
-        return None, None
+        console.print(f"[bold red]Failed to place buy order for {ticker}. Status code: {response.status_code}[/bold red]")
+        return None, order_payload
+
+
+def handle_api_response(response):
+    try:
+        return response.json()
+    except ValueError:  # If response is not valid JSON
+        console.print(f"[bold red]Invalid JSON response[/bold red]")
+        return {"error": "Invalid JSON response", "raw_response": response.text}
+
+import os
+import json
+from datetime import datetime
+
+def log_order_payload_to_file(order_payload, action_type, ticker, api_response=None):
+    current_date = datetime.now().strftime("%Y-%m-%d")
+    folder_name = f"Logs/OrderPayloads/{current_date}"
+    os.makedirs(folder_name, exist_ok=True)
+    
+    file_name = f"{ticker}_OrderPayloads_{current_date}.txt"
+    file_path = os.path.join(folder_name, file_name)
+    
+    try:
+        with open(file_path, mode='a') as file:
+            file.write(f"{action_type} Order for {ticker}:\n")
+            file.write(json.dumps(order_payload, indent=4))
+            file.write("\n\n")
+            
+            if api_response:
+                file.write("API Response:\n")
+                if isinstance(api_response, dict):
+                    file.write(json.dumps(api_response, indent=4))
+                else:
+                    file.write(str(api_response))
+                file.write("\n\n")
+                
+    except Exception as e:
+        console.print(f"[bold red]Error writing order payload to file: {e}[/bold red]")
+
 
 # Function to cancel the trailing stop order
 def cancel_trailing_stop_order(account_hash, order_id):
