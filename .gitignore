@@ -1,3 +1,5 @@
 .env
 tokens.json
 /__pycache__
+stream_data.log
+/utils/__pycache__
