@@ -3,3 +3,5 @@ tokens.json
 /__pycache__
 stream_data.log
 /utils/__pycache__
+/utils/__pycache__
+*.pyc

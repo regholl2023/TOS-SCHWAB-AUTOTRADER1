@@ -24,6 +24,15 @@ def calculate_std_deviation(prices):
 
     return np.std(prices)
 
+def calculate_upper_lower_bands(ema, std_dev):
+    """Calculate the upper and lower bands based on the EMA and standard deviation."""
+    if ema is None or std_dev is None:
+        return None, None
+    
+    upper_band = ema + (config.STD_DEVIATION_MULTIPLIER * std_dev)
+    lower_band = ema - (config.STD_DEVIATION_MULTIPLIER * std_dev)
+    return upper_band, lower_band
+
 def calculate_ema_and_bands():
     """Fetch the latest data and calculate EMA and upper/lower bands."""
     # Fetch the last X minutes of data
@@ -39,9 +48,6 @@ def calculate_ema_and_bands():
     std_dev = calculate_std_deviation(prices)
 
     # Calculate upper and lower bands
-    if ema is not None and std_dev is not None:
-        upper_band = ema + (config.STD_DEVIATION_MULTIPLIER * std_dev)
-        lower_band = ema - (config.STD_DEVIATION_MULTIPLIER * std_dev)
-        return ema, upper_band, lower_band
+    upper_band, lower_band = calculate_upper_lower_bands(ema, std_dev)
 
-    return None, None, None
+    return ema, upper_band, lower_band

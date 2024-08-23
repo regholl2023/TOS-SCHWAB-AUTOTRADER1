@@ -28,25 +28,57 @@ def update_live_data_table(tree, data, existing_items):
             item_id = tree.insert("", "end", values=(key, value))
             existing_items[key] = item_id
 
-def update_ema_table(ema_tree, ema, upper_band, lower_band, last_price, styles):
-    """Update the EMA table with the latest values and apply color coding."""
+def get_highlight_based_on_proximity(last_price, lower_band, upper_band, ema):
+    """Return a highlight tag based on the proximity of the last price to the bands."""
+    if last_price == ema:
+        return "highlight-black"  # Last price is exactly at the EMA
+
+    range_span = upper_band - lower_band
+
+    if last_price >= upper_band:
+        return "highlight-deep_red"
+    elif last_price <= lower_band:
+        return "highlight-deep_green"
+    elif last_price > ema:
+        # Calculate proximity percentage for red gradient
+        upper_proximity = (last_price - ema) / (upper_band - ema)
+        if upper_proximity > 0.75:
+            return "highlight-deep_red"
+        elif upper_proximity > 0.5:
+            return "highlight-medium_red"
+        elif upper_proximity > 0.25:
+            return "highlight-light_red"
+        else:
+            return "highlight-normal"
+    else:
+        # Calculate proximity percentage for green gradient
+        lower_proximity = (ema - last_price) / (ema - lower_band)
+        if lower_proximity > 0.75:
+            return "highlight-deep_green"
+        elif lower_proximity > 0.5:
+            return "highlight-medium_green"
+        elif lower_proximity > 0.25:
+            return "highlight-light_green"
+        else:
+            return "highlight-normal"
+
+def update_ema_table(ema_tree, ema, upper_band, lower_band, last_price):
+    """Update the EMA table with the latest values and apply background highlighting."""
     for row in ema_tree.get_children():
         ema_tree.delete(row)
 
-    # Insert the EMA and bounds data in the desired order
-    ema_tree.insert("", "end", values=("Lower Band", lower_band))
-    
-    # Apply color coding for the last price
-    if last_price > upper_band:
-        style = styles["above"]
-    elif last_price < lower_band:
-        style = styles["below"]
-    else:
-        style = styles["normal"]
-    
-    ema_tree.insert("", "end", values=("Last Price", last_price), tags=(style,))
-    ema_tree.insert("", "end", values=("Upper Band", upper_band))
-    ema_tree.insert("", "end", values=("EMA", ema))
+    # Insert the EMA and bounds data in the desired order with highlight tags
+    ema_tree.insert("", "end", values=("EMA", ema), tags=("highlight-black",))
+
+    # Always highlight the Upper Band in the deepest red
+    ema_tree.insert("", "end", values=("Upper Band", upper_band), tags=("highlight-deep_red",))
+
+    # Determine the highlight for the Last Price based on proximity and the EMA
+    highlight_tag = get_highlight_based_on_proximity(last_price, lower_band, upper_band, ema)
+    ema_tree.insert("", "end", values=("Last Price", last_price), tags=(highlight_tag,))
+
+    # Always highlight the Lower Band in the deepest green
+    ema_tree.insert("", "end", values=("Lower Band", lower_band), tags=("highlight-deep_green",))
 
 def run_stream(tree, start_stream):
     """Run the stream and update the live data table."""
@@ -67,7 +99,7 @@ def run_stream(tree, start_stream):
     stream_update_thread = Thread(target=stream_update_handler)
     stream_update_thread.start()
 
-def monitor_prices(ema_tree, alert_text, styles):
+def monitor_prices(ema_tree, alert_text):
     """Monitor prices and update the EMA table and alerts."""
     while True:
         ema, upper_band, lower_band = calculate_ema_and_bands()
@@ -76,14 +108,14 @@ def monitor_prices(ema_tree, alert_text, styles):
         if latest_data:
             last_price = latest_data[-1].get('Last Price')
             if ema is not None and last_price is not None:
-                # Update the EMA table with color coding
-                update_ema_table(ema_tree, ema, upper_band, lower_band, last_price, styles)
+                # Update the EMA table with background highlighting
+                update_ema_table(ema_tree, ema, upper_band, lower_band, last_price)
 
                 # Check for alerts
                 if last_price > upper_band:
-                    alert_text.insert(tk.END, f"ALERT: Last price {last_price} is above the upper band {upper_band}!\n", "alert")
+                    alert_text.insert(tk.END, f"SELL ALERT: Last price {last_price} is above the upper band {upper_band}!\n", "alert-sell")
                 elif last_price < lower_band:
-                    alert_text.insert(tk.END, f"ALERT: Last price {last_price} is below the lower band {lower_band}!\n", "alert")
+                    alert_text.insert(tk.END, f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}!\n", "alert-buy")
                 alert_text.see(tk.END)  # Automatically scroll to the end
 
         time.sleep(5)  # Monitor every 5 seconds
@@ -94,18 +126,15 @@ def setup_gui(start_stream):
     root = tk.Tk()
     root.title("Live Data Stream & EMA Monitor")
 
-    # Define styles for the Treeview
+    # Define styles for the Treeview with background highlights
     style = ttk.Style(root)
-    style.configure("AboveBand.TLabel", foreground="green")
-    style.configure("BelowBand.TLabel", foreground="red")
-    style.configure("Normal.TLabel", foreground="black")
-    
-    # Define styles for the alerts
-    styles = {
-        "above": "AboveBand.TLabel",
-        "below": "BelowBand.TLabel",
-        "normal": "Normal.TLabel",
-    }
+    style.configure("highlight-deep_red.TLabel", background="#8B0000")  # Deep red
+    style.configure("highlight-medium_red.TLabel", background="#CD5C5C")  # Medium red
+    style.configure("highlight-light_red.TLabel", background="#F08080")  # Light red
+    style.configure("highlight-deep_green.TLabel", background="#006400")  # Deep green
+    style.configure("highlight-medium_green.TLabel", background="#32CD32")  # Medium green
+    style.configure("highlight-light_green.TLabel", background="#90EE90")  # Light green
+    style.configure("highlight-black.TLabel", background="black", foreground="white")  # Black background with white text
 
     # Create the live data panel
     live_data_frame = tk.Frame(root)
@@ -125,9 +154,15 @@ def setup_gui(start_stream):
     ema_tree = ttk.Treeview(ema_frame, columns=("Metric", "Value"), show="headings")
     ema_tree.heading("Metric", text="Metric")
     ema_tree.heading("Value", text="Value")
-    ema_tree.tag_configure("AboveBand.TLabel", foreground="green")
-    ema_tree.tag_configure("BelowBand.TLabel", foreground="red")
-    ema_tree.tag_configure("Normal.TLabel", foreground="black")
+    ema_tree.tag_configure("highlight-upper_band", background="red")
+    ema_tree.tag_configure("highlight-lower_band", background="green")
+    ema_tree.tag_configure("highlight-deep_red", background="#8B0000")
+    ema_tree.tag_configure("highlight-medium_red", background="#CD5C5C")
+    ema_tree.tag_configure("highlight-light_red", background="#F08080")
+    ema_tree.tag_configure("highlight-deep_green", background="#006400")
+    ema_tree.tag_configure("highlight-medium_green", background="#32CD32")
+    ema_tree.tag_configure("highlight-light_green", background="#90EE90")
+    ema_tree.tag_configure("highlight-black", background="black", foreground="white")  # Black background with white text
     ema_tree.pack(fill=tk.BOTH, expand=True)
 
     # Create the alerts panel
@@ -137,11 +172,12 @@ def setup_gui(start_stream):
     # Create a ScrolledText for displaying alerts
     alert_text = tk.Text(alert_frame, height=10, wrap=tk.WORD)
     alert_text.pack(fill=tk.BOTH, expand=True)
-    alert_text.tag_configure("alert", foreground="red")
+    alert_text.tag_configure("alert-sell", foreground="red")
+    alert_text.tag_configure("alert-buy", foreground="green")
 
     # Start the stream and monitoring in separate threads
     run_stream(live_data_tree, start_stream)
-    monitor_thread = Thread(target=monitor_prices, args=(ema_tree, alert_text, styles))
+    monitor_thread = Thread(target=monitor_prices, args=(ema_tree, alert_text))
     monitor_thread.start()
 
     # Start the tkinter main loop
