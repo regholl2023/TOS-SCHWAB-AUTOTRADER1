@@ -2,6 +2,10 @@ import tkinter as tk
 from tkinter import ttk
 from threading import Thread
 import time
+import os
+from account import order_executer
+
+
 from stream import get_last_x_minutes_data
 from utils.ema import calculate_ema_and_bands
 
@@ -118,12 +122,28 @@ def monitor_prices(ema_tree, alert_text):
                     alert_text.insert(tk.END, f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}!\n", "alert-buy")
                 alert_text.see(tk.END)  # Automatically scroll to the end
 
-        time.sleep(5)  # Monitor every 5 seconds
+        time.sleep(1)  # Monitor every 1 second
 
-def update_orders_table(orders_tree, new_order):
-    """Add a new order to the orders table."""
-    orders_tree.insert("", "end", values=(new_order["Order ID"], new_order["Symbol"], new_order["Type"], new_order["Quantity"], new_order["Status"]))
+def update_order_log(order_tree):
+    """Monitor and update the order log panel."""
+    log_file_path = "orders.log"
+    
+    if not os.path.exists(log_file_path):
+        return  # Exit if log file doesn't exist
 
+    last_position = 0  # Track last position in the log file
+
+    while True:
+        with open(log_file_path, "r") as log_file:
+            log_file.seek(last_position)  # Move to the last position
+            new_lines = log_file.readlines()  # Read new lines
+            last_position = log_file.tell()  # Update the last position
+
+        # Add new lines to the Treeview
+        for line in new_lines:
+            order_tree.insert("", "end", values=(line.strip(),))
+
+        time.sleep(1)  # Check for new logs every 1 second
 def setup_gui(start_stream):
     """Setup the tkinter GUI and start the stream and monitoring."""
     # Create the main window
@@ -132,24 +152,7 @@ def setup_gui(start_stream):
 
     # Define styles for the Treeview
     style = ttk.Style(root)
-    style.configure("DeepRed.TLabel", foreground="#8B0000")  # Deep red
-    style.configure("MediumRed.TLabel", foreground="#CD5C5C")  # Medium red
-    style.configure("LightRed.TLabel", foreground="#F08080")  # Light red
-    style.configure("DeepGreen.TLabel", foreground="#006400")  # Deep green
-    style.configure("MediumGreen.TLabel", foreground="#32CD32")  # Medium green
-    style.configure("LightGreen.TLabel", foreground="#90EE90")  # Light green
-    style.configure("Black.TLabel", foreground="black")
-
-    # Define styles for the alerts
-    styles = {
-        "deep_red": "DeepRed.TLabel",
-        "medium_red": "MediumRed.TLabel",
-        "light_red": "LightRed.TLabel",
-        "deep_green": "DeepGreen.TLabel",
-        "medium_green": "MediumGreen.TLabel",
-        "light_green": "LightGreen.TLabel",
-        "black": "Black.TLabel",
-    }
+    style.configure("Treeview.Heading", font=("Helvetica", 10, "bold"))
 
     # Create the live data panel
     live_data_frame = tk.Frame(root)
@@ -169,15 +172,6 @@ def setup_gui(start_stream):
     ema_tree = ttk.Treeview(ema_frame, columns=("Metric", "Value"), show="headings")
     ema_tree.heading("Metric", text="Metric")
     ema_tree.heading("Value", text="Value")
-    ema_tree.tag_configure("upper_band", background="#8B0000")
-    ema_tree.tag_configure("lower_band", background="#006400")
-    ema_tree.tag_configure("deep_red", background="#8B0000")
-    ema_tree.tag_configure("medium_red", background="#CD5C5C")
-    ema_tree.tag_configure("light_red", background="#F08080")
-    ema_tree.tag_configure("deep_green", background="#006400")
-    ema_tree.tag_configure("medium_green", background="#32CD32")
-    ema_tree.tag_configure("light_green", background="#90EE90")
-    ema_tree.tag_configure("black", background="white")
     ema_tree.pack(fill=tk.BOTH, expand=True)
 
     # Create the alerts panel
@@ -192,26 +186,20 @@ def setup_gui(start_stream):
 
     # Create the orders panel
     orders_frame = tk.Frame(root)
-    orders_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+    orders_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
 
-    # Create a Treeview for displaying orders
-    orders_tree = ttk.Treeview(orders_frame, columns=("Order ID", "Symbol", "Type", "Quantity", "Status"), show="headings")
-    orders_tree.heading("Order ID", text="Order ID")
-    orders_tree.heading("Symbol", text="Symbol")
-    orders_tree.heading("Type", text="Type")
-    orders_tree.heading("Quantity", text="Quantity")
-    orders_tree.heading("Status", text="Status")
-    orders_tree.pack(fill=tk.BOTH, expand=True)
+    # Create a ScrolledText for displaying orders
+    orders_text = tk.Text(orders_frame, height=10, wrap=tk.WORD)
+    orders_text.pack(fill=tk.BOTH, expand=True)
 
     # Start the stream and monitoring in separate threads
     run_stream(live_data_tree, start_stream)
     monitor_thread = Thread(target=monitor_prices, args=(ema_tree, alert_text))
     monitor_thread.start()
 
-    # Simulate adding an order (replace this with actual order handling logic)
-    # You can call `update_orders_table` whenever a new order is made
-    example_order = {"Order ID": "1234", "Symbol": "AAPL", "Type": "BUY", "Quantity": 10, "Status": "Completed"}
-    update_orders_table(orders_tree, example_order)
+    # Start the order executor thread
+    order_executor_thread = Thread(target=order_executer.run_order_executor, args=(orders_text,))
+    order_executor_thread.start()
 
     # Start the tkinter main loop
     root.mainloop()

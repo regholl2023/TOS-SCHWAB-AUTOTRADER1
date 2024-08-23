@@ -1,60 +1,54 @@
+from stream import get_last_x_minutes_data
+from utils.ema import calculate_ema_and_bands
+from account.order import place_buy_order_with_trailing_stop, place_market_sell_order
 import time
-from account.order import place_buy_order_with_trailing_stop, cancel_and_replace_with_market_sell
-from utils.gui import monitor_prices
+from config import TICKER_SYMBOL
 
-# Global variable to keep track of the last alert
-last_signal = None  # It can be "BUY" or "SELL"
+def log_order_to_file(order_type, price):
+    """Log orders to a file with the order type and price."""
+    with open("orders.log", "a") as log_file:
+        log_file.write(f"{order_type} order placed at price {price}\n")
 
-def stream_alert_handler(alert):
-    """
-    Handles incoming alerts and determines if an order should be placed.
-    """
-    global last_signal
+def run_order_executor(orders_text_widget):
+    last_alert_type = None  # Track the last alert type to alternate between buy and sell orders
+    first_order_placed = False  # Ensure we start with a buy order
 
-    if alert == "BUY":
-        # Only act on a BUY alert if the last signal was a SELL or None
-        if last_signal != "BUY":
-            place_buy_order_with_trailing_stop()
-            last_signal = "BUY"
-            print("Placed a buy order.")
-
-    elif alert == "SELL":
-        # Only act on a SELL alert if the last signal was a BUY
-        if last_signal == "BUY":
-            cancel_and_replace_with_market_sell()
-            last_signal = "SELL"
-            print("Placed a sell order.")
-
-def monitor_alerts():
-    """
-    Continuously monitors alerts coming in from the stream.
-    """
     while True:
-        # Example alert fetching function - replace with actual stream logic
-        alert = get_next_alert()  # Implement this function to fetch alerts
+        # Get EMA and bands data
+        ema, upper_band, lower_band = calculate_ema_and_bands()
+        latest_data = get_last_x_minutes_data()
 
-        if alert:
-            stream_alert_handler(alert)
+        if latest_data:
+            last_price = latest_data[-1].get('Last Price')
+            if ema is not None and last_price is not None:
+                # Ensure we start with a buy order
+                if not first_order_placed:
+                    if last_price < lower_band:
+                        alert_message = f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}"
+                        print(alert_message)
+                        orders_text_widget.insert("end", alert_message + "\n")
+                        orders_text_widget.see("end")
+                        place_buy_order_with_trailing_stop(TICKER_SYMBOL)
+                        log_order_to_file("BUY", last_price)
+                        last_alert_type = "buy"
+                        first_order_placed = True  # Mark that the first buy order has been placed
+                else:
+                    # After the first buy, alternate between sell and buy orders
+                    if last_price > upper_band and last_alert_type != "sell":
+                        alert_message = f"SELL ALERT: Last price {last_price} is above the upper band {upper_band}"
+                        print(alert_message)
+                        orders_text_widget.insert("end", alert_message + "\n")
+                        orders_text_widget.see("end")
+                        place_market_sell_order(TICKER_SYMBOL)
+                        log_order_to_file("SELL", last_price)
+                        last_alert_type = "sell"
+                    elif last_price < lower_band and last_alert_type != "buy":
+                        alert_message = f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}"
+                        print(alert_message)
+                        orders_text_widget.insert("end", alert_message + "\n")
+                        orders_text_widget.see("end")
+                        place_buy_order_with_trailing_stop(TICKER_SYMBOL)
+                        log_order_to_file("BUY", last_price)
+                        last_alert_type = "buy"
 
-        # Sleep for a short while before checking again
-        time.sleep(1)
-
-def get_next_alert():
-    """
-    This is a placeholder for fetching the next alert from the stream.
-    Replace this with actual logic to get alerts.
-    """
-    # Simulating alerts coming in - Replace this with your actual alert stream logic
-    example_alerts = ["BUY", "SELL", "BUY", "SELL", "BUY"]
-    for alert in example_alerts:
-        yield alert
-
-def main():
-    """
-    Entry point for the order executor.
-    """
-    print("Starting the order executor...")
-    monitor_alerts()
-
-if __name__ == "__main__":
-    main()
+        time.sleep(1)  # Monitor every second
