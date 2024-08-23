@@ -5,7 +5,6 @@ import time
 import os
 from account import order_executer
 
-
 from stream import get_last_x_minutes_data
 from utils.ema import calculate_ema_and_bands
 
@@ -132,15 +131,15 @@ def monitor_prices(ema_tree, alert_text):
 
         time.sleep(1)  # Monitor every 1 second
 
-
-def update_order_log(order_tree):
-    """Monitor and update the order log panel."""
+def update_order_log(alert_text):
+    """Monitor and update the alert_text panel, filtering for alternating Buy/Sell orders."""
     log_file_path = "orders.log"
     
     if not os.path.exists(log_file_path):
         return  # Exit if log file doesn't exist
 
     last_position = 0  # Track last position in the log file
+    last_order_type = None  # Track the last processed order type
 
     while True:
         with open(log_file_path, "r") as log_file:
@@ -148,11 +147,17 @@ def update_order_log(order_tree):
             new_lines = log_file.readlines()  # Read new lines
             last_position = log_file.tell()  # Update the last position
 
-        # Add new lines to the Treeview
+        # Add new lines to the alert_text widget
         for line in new_lines:
-            order_tree.insert("", "end", values=(line.strip(),))
+            order_type = "Buy" if "BUY" in line.upper() else "Sell" if "SELL" in line.upper() else None
+            if order_type and order_type != last_order_type:  # Filter for alternating orders
+                alert_text.insert(tk.END, line.strip() + "\n")
+                last_order_type = order_type  # Update the last processed order type
 
+        alert_text.see(tk.END)  # Automatically scroll to the end
         time.sleep(1)  # Check for new logs every 1 second
+
+
 def setup_gui(start_stream):
     """Setup the tkinter GUI and start the stream and monitoring."""
     # Create the main window
@@ -162,6 +167,10 @@ def setup_gui(start_stream):
     # Create the live data panel
     live_data_frame = tk.Frame(root)
     live_data_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    # Create a label for the stock data panel
+    stock_data_label = tk.Label(live_data_frame, text="Stock Data", font=("Helvetica", 16))
+    stock_data_label.pack()
 
     # Create a Treeview for displaying live ticker data
     live_data_tree = ttk.Treeview(live_data_frame, columns=("Field", "Value"), show="headings")
@@ -177,6 +186,10 @@ def setup_gui(start_stream):
     ema_frame = tk.Frame(right_panel)
     ema_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
+    # Create a label for the EMA data panel
+    ema_label = tk.Label(ema_frame, text="EMA Data", font=("Helvetica", 16))
+    ema_label.pack()
+
     # Create a Treeview for displaying EMA, bounds, and last price
     ema_tree = ttk.Treeview(ema_frame, columns=("Metric", "Value"), show="headings")
     ema_tree.heading("Metric", text="Metric")
@@ -191,6 +204,10 @@ def setup_gui(start_stream):
     orders_frame = tk.Frame(logs_and_pairs_frame)
     orders_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+    # Create a label for the orders placed panel
+    orders_label = tk.Label(orders_frame, text="Orders Placed", font=("Helvetica", 16))
+    orders_label.pack()
+
     # Create a Treeview for displaying orders
     orders_tree = ttk.Treeview(orders_frame, columns=("Order Type", "Price"), show="headings")
     orders_tree.heading("Order Type", text="Order Type")
@@ -201,9 +218,23 @@ def setup_gui(start_stream):
     pairs_frame = tk.Frame(logs_and_pairs_frame)
     pairs_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
+    # Create a label for the Buy/Sell pairs panel
+    pairs_label = tk.Label(pairs_frame, text="Buy/Sell Pairs", font=("Helvetica", 16))
+    pairs_label.pack()
+
+    # Create a Treeview for displaying pairs
+    pairs_tree = ttk.Treeview(pairs_frame, columns=("Buy Order", "Sell Order"), show="headings")
+    pairs_tree.heading("Buy Order", text="Buy Order")
+    pairs_tree.heading("Sell Order", text="Sell Order")
+    pairs_tree.pack(fill=tk.BOTH, expand=True)
+
     # Create the alerts panel at the bottom
     alert_frame = tk.Frame(root)
     alert_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)
+
+    # Create a label for the alerts panel
+    alerts_label = tk.Label(alert_frame, text="Alerts", font=("Helvetica", 16))
+    alerts_label.pack()
 
     # Create a ScrolledText for displaying alerts
     alert_text = tk.Text(alert_frame, height=10, wrap=tk.WORD)
@@ -222,4 +253,3 @@ def setup_gui(start_stream):
 
     # Start the tkinter main loop
     root.mainloop()
-
