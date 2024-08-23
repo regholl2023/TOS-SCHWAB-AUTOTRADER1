@@ -4,7 +4,7 @@
 TICKER_SYMBOL = "SQQQ"  # The ticker symbol you want to stream
 # Order Settings
 QUANTITY=1
-STOP_PRICE_OFFSET = 0.7  # The trailing stop offset
+STOP_PRICE_OFFSET = 0.07  # The trailing stop offset
 STOP_PRICE_LINK_TYPE = "VALUE"  # Type of link (could be VALUE, PERCENT, etc.)
 STOP_PRICE_LINK_BASIS = "LAST"  # Basis for the stop price (could be LAST, BID, ASK, etc.)
 
