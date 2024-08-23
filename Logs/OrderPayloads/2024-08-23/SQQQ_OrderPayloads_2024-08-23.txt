@@ -1,0 +1,147 @@
+Buy Order for SQQQ:
+{
+    "session": "NORMAL",
+    "duration": "DAY",
+    "orderType": "MARKET",
+    "orderStrategyType": "TRIGGER",
+    "editable": true,
+    "orderLegCollection": [
+        {
+            "orderLegType": "EQUITY",
+            "instruction": "BUY",
+            "quantity": 1,
+            "instrument": {
+                "symbol": "SQQQ",
+                "assetType": "EQUITY"
+            }
+        }
+    ],
+    "childOrderStrategies": [
+        {
+            "session": "NORMAL",
+            "duration": "DAY",
+            "orderType": "TRAILING_STOP",
+            "orderStrategyType": "SINGLE",
+            "stopPriceLinkType": "VALUE",
+            "stopPriceOffset": 0.07,
+            "stopPriceLinkBasis": "LAST",
+            "editable": true,
+            "orderLegCollection": [
+                {
+                    "orderLegType": "EQUITY",
+                    "instruction": "SELL",
+                    "quantity": 1,
+                    "instrument": {
+                        "symbol": "SQQQ",
+                        "assetType": "EQUITY"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+API Response:
+{
+    "error": "Invalid JSON response",
+    "raw_response": ""
+}
+
+Buy Order for SQQQ:
+{
+    "session": "NORMAL",
+    "duration": "DAY",
+    "orderType": "MARKET",
+    "orderStrategyType": "TRIGGER",
+    "editable": true,
+    "orderLegCollection": [
+        {
+            "orderLegType": "EQUITY",
+            "instruction": "BUY",
+            "quantity": 1,
+            "instrument": {
+                "symbol": "SQQQ",
+                "assetType": "EQUITY"
+            }
+        }
+    ],
+    "childOrderStrategies": [
+        {
+            "session": "NORMAL",
+            "duration": "DAY",
+            "orderType": "TRAILING_STOP",
+            "orderStrategyType": "SINGLE",
+            "stopPriceLinkType": "VALUE",
+            "stopPriceOffset": 0.07,
+            "stopPriceLinkBasis": "LAST",
+            "editable": true,
+            "orderLegCollection": [
+                {
+                    "orderLegType": "EQUITY",
+                    "instruction": "SELL",
+                    "quantity": 1,
+                    "instrument": {
+                        "symbol": "SQQQ",
+                        "assetType": "EQUITY"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+API Response:
+{
+    "error": "Invalid JSON response",
+    "raw_response": ""
+}
+
+Buy Order for SQQQ:
+{
+    "session": "NORMAL",
+    "duration": "DAY",
+    "orderType": "MARKET",
+    "orderStrategyType": "TRIGGER",
+    "editable": true,
+    "orderLegCollection": [
+        {
+            "orderLegType": "EQUITY",
+            "instruction": "BUY",
+            "quantity": 1,
+            "instrument": {
+                "symbol": "SQQQ",
+                "assetType": "EQUITY"
+            }
+        }
+    ],
+    "childOrderStrategies": [
+        {
+            "session": "NORMAL",
+            "duration": "DAY",
+            "orderType": "TRAILING_STOP",
+            "orderStrategyType": "SINGLE",
+            "stopPriceLinkType": "VALUE",
+            "stopPriceOffset": 0.07,
+            "stopPriceLinkBasis": "LAST",
+            "editable": true,
+            "orderLegCollection": [
+                {
+                    "orderLegType": "EQUITY",
+                    "instruction": "SELL",
+                    "quantity": 1,
+                    "instrument": {
+                        "symbol": "SQQQ",
+                        "assetType": "EQUITY"
+                    }
+                }
+            ]
+        }
+    ]
+}
+
+API Response:
+{
+    "error": "Invalid JSON response",
+    "raw_response": ""
+}
+

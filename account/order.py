@@ -25,7 +25,6 @@ parent_order_id = None
 child_order_id = None
 
 # Function to get account hash
-# Function to get account hash
 def get_account_hash(client):
     response = client.account_linked()
     if response.ok:
@@ -37,12 +36,7 @@ def get_account_hash(client):
 
 
 # Function to place a two-legged buy order with a trailing stop
-def place_buy_order_with_trailing_stop(client, ticker):
-    global account_hash  # Ensure account_hash is accessible
-    
-    # Call get_account_hash to initialize account_hash
-    account_hash = get_account_hash(client)
-    
+def place_buy_order_with_trailing_stop(client, ticker, account_hash):
     # Ensure account hash is available before placing an order
     if not account_hash:
         console.print("[bold red]Account hash is not available. Cannot place the order.[/bold red]")
@@ -50,7 +44,6 @@ def place_buy_order_with_trailing_stop(client, ticker):
 
     # Order payload construction (using relevant config values)
     order_payload = {
-        "accountId": account_hash,  # Ensure the account ID is correctly passed
         "session": "NORMAL",
         "duration": "DAY",
         "orderType": "MARKET",
@@ -82,7 +75,8 @@ def place_buy_order_with_trailing_stop(client, ticker):
 
     # Place the order and handle the response
     try:
-        response = client.order_place(order_payload)  # Pass only the order_payload directly
+        # Correctly pass the account_hash and the order_payload
+        response = client.order_place(account_hash, order_payload)
         api_response = handle_api_response(response)
 
         log_order_payload_to_file(order_payload, "Buy", ticker, api_response)
@@ -106,12 +100,16 @@ def place_buy_order_with_trailing_stop(client, ticker):
         return None, None
 
 
+
 def handle_api_response(response):
     try:
         return response.json()
     except ValueError:  # If response is not valid JSON
         console.print(f"[bold red]Invalid JSON response[/bold red]")
+        # Log the raw response for further analysis
+        console.print(f"Raw response: {response.text}")
         return {"error": "Invalid JSON response", "raw_response": response.text}
+
 
 
 import os
@@ -155,7 +153,8 @@ def cancel_trailing_stop_order(account_hash, order_id):
         return False
 
 # Function to place a market sell order
-def place_market_sell_order(account_hash):
+def place_market_sell_order(client, ticker, account_hash):
+    # Construct the sell order payload
     sell_order_payload = {
         "session": "NORMAL",
         "duration": "DAY",
@@ -165,11 +164,13 @@ def place_market_sell_order(account_hash):
             "orderLegType": "EQUITY",
             "instruction": "SELL",
             "quantity": QUANTITY,
-            "instrument": {"symbol": TICKER_SYMBOL, "assetType": "EQUITY"}
+            "instrument": {"symbol": ticker, "assetType": "EQUITY"}
         }]
     }
 
+    # Place the sell order using the client instance
     response = client.order_place(account_hash, sell_order_payload)
+    
     if response.status_code == 201:
         console.print("[bold green]Market sell order placed successfully.[/bold green]")
         location_header = response.headers.get("Location")
@@ -179,6 +180,7 @@ def place_market_sell_order(account_hash):
     else:
         console.print(f"[bold red]Failed to place sell order: {response.text}[/bold red]")
         return None
+
 
 # Function to cancel trailing stop and replace it with a market sell order
 def cancel_and_replace_with_market_sell(account_hash, order_id):

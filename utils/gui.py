@@ -201,12 +201,6 @@ def setup_gui(start_stream):
     pairs_frame = tk.Frame(logs_and_pairs_frame)
     pairs_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-    # Create a Treeview for displaying pairs
-    pairs_tree = ttk.Treeview(pairs_frame, columns=("Buy Order", "Sell Order"), show="headings")
-    pairs_tree.heading("Buy Order", text="Buy Order")
-    pairs_tree.heading("Sell Order", text="Sell Order")
-    pairs_tree.pack(fill=tk.BOTH, expand=True)
-
     # Create the alerts panel at the bottom
     alert_frame = tk.Frame(root)
     alert_frame.pack(side=tk.BOTTOM, fill=tk.BOTH, expand=True)

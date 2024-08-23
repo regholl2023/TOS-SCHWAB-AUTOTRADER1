@@ -46,7 +46,8 @@ def run_order_executor(orders_tree_widget):
                         alert_message = f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}"
                         print(alert_message)
                         orders_tree_widget.insert("", "end", values=("BUY", last_price))
-                        place_buy_order_with_trailing_stop(client, TICKER_SYMBOL)  # Pass account_hash here
+                        # Pass account_hash when placing the order
+                        place_buy_order_with_trailing_stop(client, TICKER_SYMBOL, account_hash)
                         log_order_to_file("BUY", last_price)
                         last_alert_type = "buy"
                         first_order_placed = True  # Mark that the first buy order has been placed
@@ -56,14 +57,14 @@ def run_order_executor(orders_tree_widget):
                         alert_message = f"SELL ALERT: Last price {last_price} is above the upper band {upper_band}"
                         print(alert_message)
                         orders_tree_widget.insert("", "end", values=("SELL", last_price))
-                        place_market_sell_order(client, TICKER_SYMBOL, account_hash)  # Pass account_hash here
+                        place_market_sell_order(client, TICKER_SYMBOL, account_hash)
                         log_order_to_file("SELL", last_price)
                         last_alert_type = "sell"
                     elif last_price < lower_band and last_alert_type != "buy":
                         alert_message = f"BUY ALERT: Last price {last_price} is below the lower band {lower_band}"
                         print(alert_message)
                         orders_tree_widget.insert("", "end", values=("BUY", last_price))
-                        place_buy_order_with_trailing_stop(client, TICKER_SYMBOL, account_hash)  # Pass account_hash here
+                        place_buy_order_with_trailing_stop(client, TICKER_SYMBOL, account_hash)
                         log_order_to_file("BUY", last_price)
                         last_alert_type = "buy"
 
