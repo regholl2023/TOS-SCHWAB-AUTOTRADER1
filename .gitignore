@@ -5,3 +5,11 @@ stream_data.log
 /utils/__pycache__
 /utils/__pycache__
 *.pyc
+/utils/__pycache__
+*.log
+/Logs
+/Logs/OrderPayloads/2024-08-23
+Logs/OrderPayloads/2024-08-23/SQQQ_OrderPayloads_2024-08-23.txt
+*.log
+orders.log
+Logs/OrderPayloads/2024-08-23/SQQQ_OrderPayloads_2024-08-23.txt

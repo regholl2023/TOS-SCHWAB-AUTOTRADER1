@@ -4,9 +4,9 @@ from threading import Thread
 import time
 import os
 from account import order_executer
-
 from stream import get_last_x_minutes_data
 from utils.ema import calculate_ema_and_bands
+from account.order_executer import get_active_orders, poll_active_orders, start_polling
 
 class RedirectText:
     def __init__(self, text_widget):
@@ -30,6 +30,21 @@ def update_live_data_table(tree, data, existing_items):
             # Insert new item if it's not already in the tree
             item_id = tree.insert("", "end", values=(key, value))
             existing_items[key] = item_id
+
+def update_active_orders_panel(active_orders_tree):
+    """Update the active orders panel with the latest active orders info."""
+    while True:
+        active_orders = get_active_orders()
+
+        # Clear the tree view
+        for row in active_orders_tree.get_children():
+            active_orders_tree.delete(row)
+
+        # Insert active orders details
+        for order in active_orders:
+            active_orders_tree.insert("", "end", values=(order["order_type"], order["ticker"], order["price"], order["status"]))
+        
+        time.sleep(1)  # Refresh every second
 
 def get_color_based_on_proximity(last_price, lower_band, upper_band, ema):
     """Return a color tag based on the proximity of the last price to the bands."""
@@ -157,8 +172,7 @@ def update_order_log(alert_text):
         alert_text.see(tk.END)  # Automatically scroll to the end
         time.sleep(1)  # Check for new logs every 1 second
 
-
-def setup_gui(start_stream):
+def setup_gui(start_stream, client, account_hash):
     """Setup the tkinter GUI and start the stream and monitoring."""
     # Create the main window
     root = tk.Tk()
@@ -178,7 +192,7 @@ def setup_gui(start_stream):
     live_data_tree.heading("Value", text="Value")
     live_data_tree.pack(fill=tk.BOTH, expand=True)
 
-    # Create the right panel for EMA, orders, logs, and pairs
+    # Create the right panel for EMA, active orders, and logs
     right_panel = tk.Frame(root)
     right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
@@ -196,37 +210,25 @@ def setup_gui(start_stream):
     ema_tree.heading("Value", text="Value")
     ema_tree.pack(fill=tk.BOTH, expand=True)
 
-    # Create a frame for logs and pairs under the EMA frame
-    logs_and_pairs_frame = tk.Frame(right_panel)
-    logs_and_pairs_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    # Create a frame for logs and active orders under the EMA frame
+    logs_and_orders_frame = tk.Frame(right_panel)
+    logs_and_orders_frame.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-    # Create the orders panel on the left side of logs_and_pairs_frame
-    orders_frame = tk.Frame(logs_and_pairs_frame)
-    orders_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    # Create the active orders panel on the right side of logs_and_orders_frame
+    active_orders_frame = tk.Frame(logs_and_orders_frame)
+    active_orders_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
 
-    # Create a label for the orders placed panel
-    orders_label = tk.Label(orders_frame, text="Orders Placed", font=("Helvetica", 16))
-    orders_label.pack()
+    # Create a label for the active orders panel
+    active_orders_label = tk.Label(active_orders_frame, text="Active Orders", font=("Helvetica", 16))
+    active_orders_label.pack()
 
-    # Create a Treeview for displaying orders
-    orders_tree = ttk.Treeview(orders_frame, columns=("Order Type", "Price"), show="headings")
-    orders_tree.heading("Order Type", text="Order Type")
-    orders_tree.heading("Price", text="Price")
-    orders_tree.pack(fill=tk.BOTH, expand=True)
-
-    # Create the pairs panel on the right side of logs_and_pairs_frame
-    pairs_frame = tk.Frame(logs_and_pairs_frame)
-    pairs_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-
-    # Create a label for the Buy/Sell pairs panel
-    pairs_label = tk.Label(pairs_frame, text="Buy/Sell Pairs", font=("Helvetica", 16))
-    pairs_label.pack()
-
-    # Create a Treeview for displaying pairs
-    pairs_tree = ttk.Treeview(pairs_frame, columns=("Buy Order", "Sell Order"), show="headings")
-    pairs_tree.heading("Buy Order", text="Buy Order")
-    pairs_tree.heading("Sell Order", text="Sell Order")
-    pairs_tree.pack(fill=tk.BOTH, expand=True)
+    # Create a Treeview for displaying active orders
+    active_orders_tree = ttk.Treeview(active_orders_frame, columns=("Order Type", "Ticker", "Price", "Status"), show="headings")
+    active_orders_tree.heading("Order Type", text="Order Type")
+    active_orders_tree.heading("Ticker", text="Ticker")
+    active_orders_tree.heading("Price", text="Price")
+    active_orders_tree.heading("Status", text="Status")
+    active_orders_tree.pack(fill=tk.BOTH, expand=True)
 
     # Create the alerts panel at the bottom
     alert_frame = tk.Frame(root)
@@ -247,9 +249,31 @@ def setup_gui(start_stream):
     monitor_thread = Thread(target=monitor_prices, args=(ema_tree, alert_text))
     monitor_thread.start()
 
+    # Start updating the active orders panel
+    active_orders_thread = Thread(target=update_active_orders_panel, args=(active_orders_tree,))
+    active_orders_thread.start()
+
+    # Start polling active orders in a separate thread
+    start_polling(client, account_hash)  # This will run poll_active_orders in a separate thread
+
     # Start the order executor in a separate thread
-    order_executor_thread = Thread(target=order_executer.run_order_executor, args=(orders_tree,))
+    order_executor_thread = Thread(target=order_executer.run_order_executor, args=(active_orders_tree,))
     order_executor_thread.start()
 
     # Start the tkinter main loop
     root.mainloop()
+
+def update_active_orders_panel(active_orders_tree):
+    """Update the active orders panel with the latest active orders info."""
+    while True:
+        active_orders = get_active_orders()
+
+        # Clear the tree view
+        for row in active_orders_tree.get_children():
+            active_orders_tree.delete(row)
+
+        # Insert active orders details
+        for order in active_orders:
+            active_orders_tree.insert("", "end", values=(order["order_type"], order["ticker"], order["price"], order["status"]))
+        
+        time.sleep(1)  # Refresh every second

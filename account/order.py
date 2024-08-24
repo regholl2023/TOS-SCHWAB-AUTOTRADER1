@@ -1,4 +1,3 @@
-# Here's the updated `order.py` file with the latest implementation of `place_buy_order_with_trailing_stop`
 import json
 import time
 import os
@@ -6,6 +5,7 @@ from rich.console import Console
 from dotenv import load_dotenv
 import schwabdev
 from config import TICKER_SYMBOL, QUANTITY, STOP_PRICE_OFFSET, STOP_PRICE_LINK_TYPE, STOP_PRICE_LINK_BASIS
+from datetime import datetime
 
 # Load environment variables from .env
 load_dotenv()
@@ -20,9 +20,10 @@ client = schwabdev.Client(APP_KEY, APP_SECRET, REDIRECT_URL, TOKENS_FILE)
 # Initialize console for rich output
 console = Console()
 
-# Global variables to track order IDs
+# Global variables to track order IDs and active orders
 parent_order_id = None
 child_order_id = None
+active_orders = []
 
 # Function to get account hash
 def get_account_hash(client):
@@ -34,15 +35,29 @@ def get_account_hash(client):
     console.print("[bold red]Failed to retrieve account hash.[/bold red]")
     return None
 
+# Function to add an active order
+def add_active_order(order_type, ticker, price, status="Active"):
+    global active_orders
+    active_orders.append({"order_type": order_type, "ticker": ticker, "price": price, "status": status})
+
+# Function to get active orders
+def get_active_orders():
+    return active_orders
+
+# Function to update an order status
+def update_order_status(order_id, new_status):
+    global active_orders
+    for order in active_orders:
+        if order["order_id"] == order_id:
+            order["status"] = new_status
 
 # Function to place a two-legged buy order with a trailing stop
 def place_buy_order_with_trailing_stop(client, ticker, account_hash):
-    # Ensure account hash is available before placing an order
+    global parent_order_id, child_order_id
     if not account_hash:
         console.print("[bold red]Account hash is not available. Cannot place the order.[/bold red]")
         return None, None
 
-    # Order payload construction (using relevant config values)
     order_payload = {
         "session": "NORMAL",
         "duration": "DAY",
@@ -73,9 +88,7 @@ def place_buy_order_with_trailing_stop(client, ticker, account_hash):
         }]
     }
 
-    # Place the order and handle the response
     try:
-        # Correctly pass the account_hash and the order_payload
         response = client.order_place(account_hash, order_payload)
         api_response = handle_api_response(response)
 
@@ -86,6 +99,7 @@ def place_buy_order_with_trailing_stop(client, ticker, account_hash):
             if location_header:
                 parent_order_id = int(location_header.split('/')[-1])
                 child_order_id = parent_order_id + 1
+                add_active_order("Buy", ticker, None, "Active")
                 console.print(f"[bold green]Placed buy order for {ticker} with trailing stop. Parent Order ID: {parent_order_id}, Child Order ID: {child_order_id}[/bold green]")
                 return parent_order_id, order_payload
             else:
@@ -98,8 +112,6 @@ def place_buy_order_with_trailing_stop(client, ticker, account_hash):
     except Exception as e:
         console.print(f"[bold red]Exception occurred while placing order: {str(e)}[/bold red]")
         return None, None
-
-
 
 def handle_api_response(response):
     try:
